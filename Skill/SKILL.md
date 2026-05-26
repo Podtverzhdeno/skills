@@ -13,477 +13,454 @@ description: >
 
 # API Audit Skill
 
-Ты — аудитор API-реализации. Твоя задача: пройти все шаги ниже строго по порядку,
-**после каждого действия сообщать пользователю что получилось и что нет**,
-и в конце вывести финальный отчёт прямо в чат.
+Ты — аудитор API-реализации.
+
+Твоя задача:
+1. Проверить наличие `gigacode.md`
+2. Если файла нет — автоматически выполнить `/init`
+3. Дождаться автоматического создания `gigacode.md`
+4. Сразу после создания начать анализ архитектуры проекта
+5. Изучить архитектуру ИМЕННО через `gigacode.md`
+6. Выполнить аудит API
+7. Создать отдельную папку с markdown-отчётами по каждому API
 
 ---
 
-## ВАЖНЫЕ ПРАВИЛА
+# ВАЖНЕЙШЕЕ ПРАВИЛО
 
-- **Каждое действие** заканчивается явным блоком статуса — что выполнено ✅, что не удалось ❌.
-- **Каждое ✅ требование должно содержать доказательство** — конкретную строку или аннотацию из кода. Без цитаты — не ставь ✅.
-- Записывай все находки в `gigacode.md` по мере работы — не жди конца.
-- **Читай реальный код файлов**, не угадывай содержимое по именам.
-- Пути — всегда относительные от корня проекта.
-- **НЕ создавай никаких report-файлов**. Финальный отчёт выводится только в чат.
-- **НЕ давай рекомендаций** — только факты: выполнено или нет, где именно.
+## НИКОГДА НЕ СОЗДАВАЙ ОБЩИЙ ОТЧЁТ В `gigacode.md`
+
+`gigacode.md` используется ТОЛЬКО:
+- для инициализации проекта
+- для архитектурного анализа
+- для понимания структуры проекта
+- для изучения связей модулей
+- для анализа слоёв приложения
+- для понимания dependency graph
+
+ФИНАЛЬНЫЕ API-ОТЧЁТЫ В `gigacode.md` НЕ ПИШУТСЯ.
 
 ---
 
-## СКРИПТЫ
+# ГДЕ СОЗДАВАТЬ ОТЧЁТЫ
 
-В папке `scripts/` три вспомогательных скрипта. **Всегда используй их** — они дают точные результаты.
+Для каждого API создаётся отдельный markdown-файл.
 
-| Скрипт | Когда | Назначение |
-|---|---|---|
-| `scripts/scan_project.py <root>` | Шаг 1 | Сканирует проект, находит API-файлы, определяет фреймворк → JSON |
-| `scripts/find_implementation.py <root> <METHOD> <path>` | Шаг 3 | Ищет реализацию API 4 стратегиями → JSON с файлом, классом, строками |
-| `scripts/update_gigacode.py <gigacode.md> "<секция>" --content "..."` | 1,2,3,4 | Безопасно добавляет/обновляет секцию в gigacode.md |
+Пример структуры:
 
-После **каждого** вызова скрипта выводи блок статуса (шаблон см. ниже).
-Если скрипт не найден или упал — выполни bash-fallback из соответствующего шага и укажи это в блоке статуса.
-
-### Шаблон блока статуса скрипта
-
+```text
+api-audit-report/
+├── GET_api_users.md
+├── POST_api_orders.md
+├── DELETE_api_reports_reportId.md
+├── PATCH_api_profile.md
+└── SUMMARY.md
 ```
-[СКРИПТ] <имя_скрипта> <аргументы>
-  Статус:  ✅ выполнен / ❌ ошибка: <текст ошибки> / ⚠️ fallback: <что выполнено вместо>
-  Результат: <ключевые цифры или факты из вывода>
-```
+
+Каждый файл содержит:
+- endpoint
+- найденную реализацию
+- проверки требований
+- доказательства из кода
+- статус выполнения
+
+`SUMMARY.md` содержит:
+- список всех API
+- общий статус
+- сколько требований выполнено
+- сколько нарушений найдено
+- ссылки на файлы отчётов
 
 ---
 
-## ШАГ 0 — Уточнить входные данные (если не указаны)
+# ПРАВИЛО ИНИЦИАЛИЗАЦИИ
 
-Перед началом убедись, что у тебя есть:
-1. **Корень проекта** — путь к папке с кодом (по умолчанию: текущая директория).
-2. **Файл с типами API** — файл, в котором перечислены все типы API и требования к каждому.
+## Если `gigacode.md` отсутствует
 
-Если что-то не указано — спроси пользователя **одним сообщением** перед стартом.
-
----
-
-## ШАГ 1 — Анализ архитектуры проекта
-
-**Цель:** понять структуру проекта, найти все места с реализацией API, записать в gigacode.md.
-
-### 1.1 Запусти скрипт сканирования
+НЕМЕДЛЕННО выполнить:
 
 ```bash
-python scripts/scan_project.py <корень_проекта>
+/init
 ```
 
-Скрипт вернёт JSON с полями:
-`framework`, `language`, `build_tool`, `api_files`, `all_source_files`, `dir_tree`
+После этого:
+1. убедиться, что `gigacode.md` появился
+2. прочитать `gigacode.md`
+3. извлечь архитектурную информацию
+4. только потом продолжать аудит API
 
-Выведи блок статуса:
-```
-[СКРИПТ] scan_project.py <корень_проекта>
-  Статус:   ✅ выполнен
-  Результат: язык: Java, фреймворк: Spring Boot, API-файлов: 7, всего исходников: 134
-```
+---
 
-Fallback (если скрипт недоступен):
-```bash
-find <корень_проекта> -type f \( -name "*.java" -o -name "*.kt" -o -name "*.py" -o -name "*.ts" \) | sort
-```
+# ПРАВИЛО АНАЛИЗА АРХИТЕКТУРЫ
 
-### 1.2 Определение технологии (если скрипт не определил)
+Перед проверкой API ОБЯЗАТЕЛЬНО:
 
-| Признак в коде / файлах | Технология |
+1. Прочитать `gigacode.md`
+2. Определить:
+   - слои приложения
+   - архитектурный стиль
+   - расположение controllers/resources/routes
+   - сервисный слой
+   - persistence layer
+   - security layer
+   - DTO/models/entities
+   - API gateway/router
+   - middleware/interceptors
+   - validation layer
+
+3. Использовать эти знания при поиске реализаций API.
+
+Запрещено искать API вслепую.
+
+---
+
+# ВАЖНЫЕ ПРАВИЛА
+
+- Каждое действие заканчивается блоком статуса
+- Каждое требование должно иметь доказательство из кода
+- Без доказательства нельзя ставить ✅
+- Читать РЕАЛЬНЫЙ код файлов
+- Не угадывать реализацию по именам
+- Пути всегда относительные
+- Не писать финальные API-отчёты в `gigacode.md`
+- `gigacode.md` используется только как архитектурная база знаний
+
+---
+
+# СКРИПТЫ
+
+В папке `scripts/` используются:
+
+| Скрипт | Назначение |
 |---|---|
-| `@RestController`, `@RequestMapping`, `@GetMapping` | Java / Spring Boot |
-| `@Controller` + `ResponseBody` | Java / Spring MVC |
-| `@Path`, `@GET`, `@POST` (JAX-RS) | Java / JAX-RS (Quarkus, Jersey) |
-| `router.get`, `express()` | Node.js / Express |
-| `@app.get`, `APIRouter` | Python / FastAPI |
-| `r.GET`, `gin.Default()` | Go / Gin |
+| `scan_project.py` | анализ архитектуры проекта |
+| `find_implementation.py` | поиск реализации API |
+| `update_gigacode.py` | обновление архитектурных секций |
 
-### 1.3 Запись в gigacode.md
+---
+
+# ШАГ 0 — Проверка gigacode.md
+
+Проверить:
 
 ```bash
-python scripts/update_gigacode.py gigacode.md "[ШАГ 1] Архитектура проекта" --content "
-Дата: <дата>
-Язык: <язык>
-Фреймворк: <фреймворк>
-Сборщик: <maven/gradle/npm/...>
-API-файлы:
-  - <путь1>
-  - <путь2>
-Дерево проекта:
-<dir_tree из скрипта>
-"
+ls gigacode.md
 ```
 
-Выведи блок статуса:
-```
-[СКРИПТ] update_gigacode.py — [ШАГ 1]
-  Статус:   ✅ секция записана / ❌ ошибка: <текст>
-```
-
-### Отчёт пользователю после шага 1
-
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ШАГ 1 — Архитектура проекта
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅ Язык: <язык>
-✅ Фреймворк: <фреймворк>
-✅ API-файлов найдено: <N>
-     - <путь/к/файлу1>
-     - <путь/к/файлу2>
-✅ gigacode.md: создан/обновлён
-
-❌ Не удалось:
-     - <если что-то не обнаружено или скрипт упал>
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
----
-
-## ШАГ 2 — Чтение файла с типами API
-
-**Цель:** прочитать файл, извлечь все типы API и требования к каждому.
-
-### 2.1 Чтение файла
-
-Прочитай файл целиком. Форматы:
-- Текстовый / Markdown файл с разделами по каждому типу API
-- OpenAPI / Swagger YAML — парси секцию `paths`
-- Любой другой формат с перечнем API и требований
-
-### 2.2 Извлечение типов API и требований
-
-Для каждого типа API зафиксируй явный список:
-
-```
-Тип API: <название / ID>
-  HTTP-метод: GET | POST | PUT | DELETE | PATCH
-  Путь: /api/v1/...
-  Описание: что должен делать
-  Требования (каждое — отдельный проверяемый пункт):
-    1. <требование> (например: принимать @RequestBody OrderCreateDto)
-    2. <требование> (например: валидировать тело через @Valid)
-    3. <требование> (например: оборачивать в @Transactional)
-    4. <требование> (например: возвращать ResponseEntity со статусом 201)
-    N. ...
-```
-
-Если требование в файле сформулировано размыто — зафиксируй как есть и отметь `⚠️ неоднозначно`.
-Если не смог извлечь требование полностью — отметь `⚠️ требование не распознано: <фрагмент текста>`.
-
-### 2.3 Обновление gigacode.md
+Если файла нет:
 
 ```bash
-python scripts/update_gigacode.py gigacode.md "[ШАГ 2] Типы API и требования" --content "..."
+/init
 ```
 
-Выведи блок статуса:
-```
-[СКРИПТ] update_gigacode.py — [ШАГ 2]
-  Статус:   ✅ секция записана / ❌ ошибка: <текст>
-```
-
-### Отчёт пользователю после шага 2
-
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ШАГ 2 — Типы API из файла требований
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅ Файл прочитан: <путь>
-✅ Извлечено типов API: <N>
-
-  #  Тип API              Метод    Путь                   Требований
-  ─────────────────────────────────────────────────────────────────
-  1  Создание заказа      POST     /api/orders             7
-  2  Получение юзера      GET      /api/users/{id}         5
-  3  Удаление отчёта      DELETE   /api/reports/{id}       4
-  ...
-
-⚠️ Неоднозначные / нераспознанные требования:
-  - Тип 2, требование 3: "должна быть проверка" — неясно что именно проверяется
-
-❌ Не удалось:
-  - <если файл не найден или не удалось распарсить>
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
----
-
-## ШАГ 3 — Анализ каждого типа API по требованиям
-
-**Цель:** для каждого типа API найти реализацию в коде и проверить каждое требование.
-
-Обрабатывай типы **по одному**. Перед каждым типом объявляй прогресс. После каждого — выводи результат.
-
----
-
-### 3.0 Объявление прогресса (перед каждым типом)
-
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Обрабатываю тип [X из N]: <название> — <METHOD> <path>
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
----
-
-### 3.1 Поиск реализации
+После этого:
 
 ```bash
-python scripts/find_implementation.py <корень_проекта> <METHOD> <path>
-# С доп. ключевыми словами:
-python scripts/find_implementation.py <корень_проекта> <METHOD> <path> --keywords word1,word2
+cat gigacode.md
 ```
 
-Скрипт выполнит 4 стратегии: поиск по строке пути, по аннотации метода, по имени класса, по path-параметрам.
+Изучить:
+- архитектуру
+- сервисы
+- слои
+- routing
+- dependency graph
+- API structure
+- modules
+- security
+- validation
 
-**После каждого вызова выводи блок статуса:**
-
-```
-[СКРИПТ] find_implementation.py <METHOD> <path>
-  Статус:     ✅ выполнен / ❌ ошибка: <текст> / ⚠️ fallback
-  Найдено:    <N> кандидатов
-  Файлы:      <список найденных файлов>
-  Выбран:     <файл> (причина: <почему именно этот — самый релевантный путь / не @Deprecated / основной пакет>)
-```
-
-**Правило выбора при нескольких кандидатах:**
-1. Предпочитай файл в основном пакете (не в `test/`, не `deprecated`, не `v1` если есть `v2`)
-2. Предпочитай файл, где путь совпадает точнее
-3. Если выбор неочевиден — укажи оба файла и опиши разницу
-
-**При 0 кандидатах:**
-```
-[СКРИПТ] find_implementation.py <METHOD> <path>
-  Статус:     ✅ выполнен
-  Найдено:    0 кандидатов
-  Проверено файлов: <N>
-  Варианты пути искались: <path>, <path без параметров>, <последний сегмент>
-  Аннотации искались: @DeleteMapping, @RequestMapping(DELETE)
-  Вывод: реализация не найдена в <N> файлах
-```
-
-Fallback (если скрипт недоступен):
-```bash
-grep -rn "<path>" <root> --include="*.java"
-grep -rn "@<METHOD>Mapping\|@RequestMapping" <root> --include="*.java" | grep -i "<keyword>"
-grep -rn "<EntityName>Controller\|<EntityName>Resource" <root> --include="*.java"
-```
-
-Если найден кандидат — **прочитай полный файл**:
-```bash
-cat <путь_к_файлу>
-```
+Только потом переходить дальше.
 
 ---
 
-### 3.2 Проверка каждого требования
+# ШАГ 1 — Анализ проекта
 
-Прочитав код, проверь **каждое требование** из шага 2 для этого типа API.
-
-**Правило доказательства:**
-- `✅` — только если нашёл конкретную строку/аннотацию/вызов. Обязательно укажи её.
-- `❌` — если не нашёл после просмотра всего метода и класса.
-- `⚠️` — если есть частичная реализация или неоднозначность.
-
-Для Java / Spring Boot — где искать:
-
-| Требование | Что искать |
-|---|---|
-| HTTP-метод | `@GetMapping`, `@PostMapping`, `@PutMapping`, `@DeleteMapping`, `@PatchMapping`, `@RequestMapping(method=...)` |
-| Путь | строковое значение в аннотации маппинга |
-| Параметры | `@RequestParam`, `@PathVariable`, `@RequestBody`, аргументы метода |
-| Валидация | `@Valid`, `@Validated`, `@NotNull`, `@NotBlank`, `@Size`, `@Pattern`, `BindingResult` |
-| Авторизация | `@PreAuthorize`, `@Secured`, `SecurityContext`, `hasRole`, фильтры |
-| Транзакция | `@Transactional` на методе или классе |
-| HTTP-статус ответа | `ResponseEntity.status(201)`, `HttpStatus.CREATED`, `@ResponseStatus` |
-| Формат ответа | тип возврата, `ResponseEntity<DTO>`, структура тела |
-| Бизнес-логика | вызовы сервисов, репозиториев, условная обработка |
-| Обработка ошибок | `try/catch`, `@ExceptionHandler`, `throws`, `ResponseStatusException` |
-
----
-
-### 3.3 Результат по каждому типу API
-
-**Если реализация найдена:**
-
-```
-─────────────────────────────────────────────────────────
-Тип [X/N]: <название> — <METHOD> <path>
-─────────────────────────────────────────────────────────
-Реализация:
-  Файл:   src/main/java/com/app/controller/OrderController.java
-  Класс:  OrderController
-  Метод:  createOrder()
-  Строки: 45–89
-
-Проверка требований:
-  ✅ HTTP-метод POST       — строка 45: @PostMapping("/api/orders")
-  ✅ Путь /api/orders      — строка 45: @PostMapping("/api/orders")
-  ✅ Принимает OrderDto    — строка 47: @RequestBody OrderCreateDto dto
-  ❌ Валидация @Valid       — аннотация @Valid отсутствует перед параметром dto (строка 47)
-  ✅ @Transactional        — строка 44: @Transactional(rollbackFor = Exception.class)
-  ❌ Статус 201             — строка 68: return ResponseEntity.ok(...) — возвращает 200, не 201
-  ✅ Вызов сервиса         — строка 55: orderService.create(dto)
-
-Итог: ⚠️ РЕАЛИЗОВАН ЧАСТИЧНО — выполнено 5 из 7 требований
-```
-
-**Если реализация не найдена:**
-
-```
-─────────────────────────────────────────────────────────
-Тип [X/N]: <название> — <METHOD> <path>
-─────────────────────────────────────────────────────────
-❌ Реализация не найдена
-
-  Проверено файлов: 34
-  Варианты пути:    /api/reports/{id}, /api/reports/, reports
-  Аннотации:        @DeleteMapping, @RequestMapping(DELETE)
-  Классы:           ReportController, ReportResource, ReportHandler
-
-Итог: ❌ НЕ РЕАЛИЗОВАН
-```
-
-### 3.4 Обновление gigacode.md после каждого типа
+Запустить:
 
 ```bash
-python scripts/update_gigacode.py gigacode.md "[ШАГ 3] <Название типа>" --content "
-Тип: <название> — <METHOD> <path>
-Статус: РЕАЛИЗОВАН / ЧАСТИЧНО / НЕ НАЙДЕН
-Файл: <путь>
-Класс/метод: <имя>
-Строки: <N>–<M>
-Выполнено: X из N требований
-Не выполнено:
-  - <требование 1>
-  - <требование 2>
-"
+python scripts/scan_project.py <project_root>
 ```
 
-Выведи блок статуса:
-```
-[СКРИПТ] update_gigacode.py — [ШАГ 3] <Тип>
-  Статус: ✅ секция записана / ❌ ошибка: <текст>
-```
+Получить:
+- framework
+- language
+- build_tool
+- api_files
+- source_files
+- dir_tree
+
+Если нужно — обновить архитектурную секцию в `gigacode.md`.
+
+НО:
+- НЕ писать туда результаты аудита API
+- НЕ писать endpoint-отчёты
 
 ---
 
-## ШАГ 4 — Финальный отчёт (только в чат)
+# ШАГ 2 — Чтение файла типов API
 
-**Никаких файлов не создаём.** Выводи отчёт прямо в чат.
+Прочитать файл с типами API.
 
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ФИНАЛЬНЫЙ ОТЧЁТ — API Audit
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Проект:          <название / корень>
-Файл требований: <путь>
-Проверено типов: <N>
-
-СВОДКА:
-  ✅ Реализован полностью:  X
-  ⚠️ Реализован частично:  Y
-  ❌ Не реализован:         Z
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-ДЕТАЛЬНЫЙ АНАЛИЗ:
-
-───────────────────────────────────────────────────────────
-1. <Название> — POST /api/orders
-   Статус: ✅ РЕАЛИЗОВАН ПОЛНОСТЬЮ
-
-   Файл:  src/main/java/com/app/controller/OrderController.java
-   Метод: createOrder() [строки 45–89]
-
-   Требования:
-     ✅ HTTP-метод POST       — стр. 45: @PostMapping("/api/orders")
-     ✅ Путь /api/orders      — стр. 45: @PostMapping("/api/orders")
-     ✅ Принимает OrderDto    — стр. 47: @RequestBody OrderCreateDto dto
-     ✅ Валидация @Valid      — стр. 47: @Valid @RequestBody OrderCreateDto dto
-     ✅ @Transactional        — стр. 44: @Transactional(rollbackFor = Exception.class)
-     ✅ Статус 201            — стр. 68: ResponseEntity.status(HttpStatus.CREATED)
-     ✅ Вызов сервиса         — стр. 55: orderService.create(dto)
-
-───────────────────────────────────────────────────────────
-2. <Название> — GET /api/users/{id}
-   Статус: ⚠️ РЕАЛИЗОВАН ЧАСТИЧНО
-
-   Файл:  src/main/java/com/app/controller/UserController.java
-   Метод: getUserById() [строки 22–41]
-
-   Требования:
-     ✅ HTTP-метод GET        — стр. 22: @GetMapping("/api/users/{id}")
-     ✅ Путь /api/users/{id}  — стр. 22: @GetMapping("/api/users/{id}")
-     ✅ @PathVariable id      — стр. 23: @PathVariable Long id
-     ❌ @PreAuthorize ADMIN   — аннотация отсутствует на методе и классе
-     ✅ Возвращает UserDto    — стр. 40: return ResponseEntity.ok(userDto)
-     ❌ 404 при не найден     — нет обработки Optional.empty() / выброса NotFoundException
-
-───────────────────────────────────────────────────────────
-3. <Название> — DELETE /api/reports/{id}
-   Статус: ❌ НЕ РЕАЛИЗОВАН
-
-   Реализация не найдена.
-   Проверено файлов: 34
-   Искались: /api/reports/{id}, @DeleteMapping, ReportController, ReportResource
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-СВОДНАЯ ТАБЛИЦА:
-
-  #  Тип API                  Файл                             Строки   Статус
-  ──────────────────────────────────────────────────────────────────────────────
-  1  POST /api/orders         controller/OrderController.java  45–89    ✅
-  2  GET  /api/users/{id}     controller/UserController.java   22–41    ⚠️
-  3  DELETE /api/reports/{id} —                                —        ❌
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-gigacode.md обновлён: <путь>
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
+Для КАЖДОГО API:
+1. выделить endpoint
+2. выделить method
+3. выделить требования
+4. выделить ограничения
+5. выделить security expectations
+6. выделить validation expectations
 
 ---
 
-## Правила записи в gigacode.md
+# ШАГ 3 — Поиск реализации
 
-Файл — живой документ. Обновляй после каждого шага, добавляй секции (не перезаписывай).
-Структура:
+Для каждого API:
 
-```
-# GigaCode
-
-## [ШАГ 1] Архитектура проекта
-## [ШАГ 2] Типы API и требования
-## [ШАГ 3] <Название типа 1>
-## [ШАГ 3] <Название типа 2>
-...
-## [ШАГ 4] Итоги аудита
-```
-
-В конце добавь итоговую секцию:
 ```bash
-python scripts/update_gigacode.py gigacode.md "[ШАГ 4] Итоги аудита" --content "
-Проверено типов API: N
-Реализовано полностью: X
-Реализовано частично: Y
-Не реализовано: Z
-"
+python scripts/find_implementation.py <project_root> <METHOD> <path>
+```
+
+Использовать:
+- знания из `gigacode.md`
+- архитектуру проекта
+- структуру слоёв
+
+---
+
+# ШАГ 4 — Создание ОТДЕЛЬНОГО отчёта
+
+Создать папку:
+
+```text
+api-audit-report/
+```
+
+Для каждого API:
+
+```text
+api-audit-report/<METHOD>_<endpoint>.md
+```
+
+Пример:
+
+```text
+api-audit-report/POST_api_orders.md
+```
+
+Структура файла:
+
+```md
+# POST /api/orders
+
+## Реализация
+- File: src/main/java/.../OrderController.java
+- Method: createOrder
+- Lines: 44-81
+
+## Проверка требований
+
+### Требование: JWT authentication
+✅ Выполнено
+Доказательство:
+```java
+@PreAuthorize("hasRole('USER')")
+```
+
+### Требование: Validation
+❌ Не выполнено
+Доказательство:
+validation annotations отсутствуют
 ```
 
 ---
 
-## Поведение при ошибках
+# ШАГ 5 — SUMMARY.md
 
-| Ситуация | Действие |
-|---|---|
-| Скрипт не найден | Выполни bash-fallback, укажи `⚠️ fallback` в блоке статуса |
-| Скрипт вернул ошибку | Укажи `❌ ошибка: <текст>`, выполни bash-fallback |
-| Файл требований не найден | Спроси пользователя, укажи варианты путей |
-| Файл кода не читается | Пропусти, отметь `❌ файл не читается` в результате |
-| 0 кандидатов после всех стратегий | Отмечай `❌ НЕ РЕАЛИЗОВАН`, детально описывай что искал |
-| 2+ кандидата | Читай оба, выбирай по правилу (не test, не deprecated, точнее путь), объясняй выбор |
-| Требование сформулировано размыто | Отмечай `⚠️ неоднозначно`, проверяй по смыслу |
-| Проект большой (>500 файлов) | Сначала найди все *Controller/*Resource файлы, читай только их |
+Создать:
+
+```text
+api-audit-report/SUMMARY.md
+```
+
+Содержимое:
+- список API
+- статус по каждому
+- количество нарушений
+- количество выполненных требований
+- ссылки на markdown-файлы
+
+---
+
+# ЗАПРЕЩЕНО
+
+❌ Записывать endpoint-аудит в `gigacode.md`
+❌ Создавать один гигантский markdown-отчёт
+❌ Искать API без анализа архитектуры
+❌ Ставить ✅ без доказательства
+❌ Игнорировать `/init`, если `gigacode.md` отсутствует
+
+---
+
+# РЕЗУЛЬТАТ
+
+После завершения:
+
+1. `gigacode.md`
+   - содержит только архитектуру
+   - используется как knowledge base
+
+2. `api-audit-report/`
+   - содержит полный аудит
+   - отдельный `.md` на каждый API
+   - содержит `SUMMARY.md`
+```
+
+---
+
+# Обновлённый `update_gigacode.py`
+
+```python
+"""
+update_gigacode.py — Используется ТОЛЬКО для архитектурного анализа.
+
+ВАЖНО:
+- НЕ хранит endpoint audit reports
+- НЕ хранит результаты проверок API
+- НЕ хранит compliance audit
+- Используется только как архитектурная knowledge base
+"""
+
+import sys
+import json
+import argparse
+import re
+from pathlib import Path
+
+GIGACODE_HEADER = "# GigaCode — Архитектурный анализ проекта\n\n"
+SECTION_LEVEL = "##"
+
+FORBIDDEN_SECTION_PATTERNS = [
+    r"GET\s+/",
+    r"POST\s+/",
+    r"PUT\s+/",
+    r"DELETE\s+/",
+    r"PATCH\s+/",
+    r"endpoint",
+    r"audit",
+    r"requirement",
+    r"compliance",
+]
+
+
+def validate_section_title(title: str):
+    lower = title.lower()
+
+    for pattern in FORBIDDEN_SECTION_PATTERNS:
+        if re.search(pattern, lower):
+            raise ValueError(
+                "gigacode.md предназначен только для архитектурного анализа. "
+                "Endpoint audit reports запрещено сохранять в gigacode.md"
+            )
+
+
+def make_section(title: str, content: str) -> str:
+    content = content.strip()
+    return f"{SECTION_LEVEL} {title}\n\n{content}\n"
+
+
+def section_pattern(title: str) -> re.Pattern:
+    escaped = re.escape(title)
+
+    return re.compile(
+        rf"^{re.escape(SECTION_LEVEL)}\s+{escaped}\s*\n.*?(?=^{re.escape(SECTION_LEVEL)}\s|\Z)",
+        re.MULTILINE | re.DOTALL,
+    )
+
+
+def read_gigacode(path: Path) -> str:
+    if not path.exists():
+        return ""
+
+    try:
+        return path.read_text(encoding="utf-8")
+    except Exception:
+        return ""
+
+
+def write_gigacode(path: Path, content: str):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+
+
+def update(gigacode_path: str, section_title: str, content: str) -> dict:
+    validate_section_title(section_title)
+
+    path = Path(gigacode_path)
+    existing = read_gigacode(path)
+
+    new_section = make_section(section_title, content)
+    pat = section_pattern(section_title)
+
+    if not existing:
+        result_content = GIGACODE_HEADER + new_section
+        write_gigacode(path, result_content)
+
+        return {
+            "status": "created",
+            "file": str(path),
+            "section": section_title,
+            "message": "gigacode.md создан как архитектурная knowledge base"
+        }
+
+    if pat.search(existing):
+        updated = pat.sub(new_section, existing)
+
+        if not updated.endswith("\n"):
+            updated += "\n"
+
+        write_gigacode(path, updated)
+
+        return {
+            "status": "updated",
+            "file": str(path),
+            "section": section_title,
+            "message": "Архитектурная секция обновлена"
+        }
+
+    separator = "\n" if existing.endswith("\n") else "\n\n"
+    updated = existing + separator + new_section
+
+    write_gigacode(path, updated)
+
+    return {
+        "status": "appended",
+        "file": str(path),
+        "section": section_title,
+        "message": "Архитектурная секция добавлена"
+    }
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("gigacode_path")
+    parser.add_argument("section_title")
+    parser.add_argument("--content")
+    parser.add_argument("--file")
+
+    args = parser.parse_args()
+
+    content = ""
+
+    if args.content:
+        content = args.content
+    elif args.file:
+        content = Path(args.file).read_text(encoding="utf-8")
+    else:
+        content = sys.stdin.read()
+
+    result = update(args.gigacode_path, args.section_title, content)
+
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+```
+
